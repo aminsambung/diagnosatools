@@ -29,6 +29,7 @@ fun DashboardScreen(
     rpm: Int?,
     speed: Int?,
     coolant: Int?,
+    throttle: Int?, // Parameter baru
     onConnect: () -> Unit,
     onDisconnect: () -> Unit
 ) {
@@ -44,7 +45,6 @@ fun DashboardScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Beri jarak atas agar tidak tertutup status bar (karena enableEdgeToEdge)
         Spacer(modifier = Modifier.height(24.dp)) 
 
         Text(
@@ -55,30 +55,27 @@ fun DashboardScreen(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // Panel LCD
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1.3f) // Sedikit lebih kotak
+                .aspectRatio(1.3f) 
                 .background(bgColor, RoundedCornerShape(16.dp))
                 .border(10.dp, Color(0xFF222222), RoundedCornerShape(16.dp))
         ) {
-            // 1. RPM Gauge (Garis melengkung di atas)
             RpmGauge(
                 rpm = rpm ?: 0,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.65f) // Ambil 65% area atas
+                    .fillMaxHeight(0.65f) 
                     .padding(top = 10.dp),
                 redZoneColor = redZoneColor,
                 accentColor = accentColor
             )
 
-            // 2. Kecepatan (Angka Besar)
             Column(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .offset(y = 30.dp), // Geser ke bawah agar tidak tertutup jarum
+                    .offset(y = 30.dp), 
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
@@ -95,32 +92,34 @@ fun DashboardScreen(
                 )
             }
 
-            // 3. Suhu Air (Kiri bawah)
-            Column(
+            // Indikator Bawah (Suhu & Throttle)
+            Row(
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 16.dp, bottom = 16.dp)
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("SUHU", fontSize = 10.sp, color = Color.Gray)
-                Text(
-                    text = if (coolant != null) "$coolant°C" else "--°C",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if ((coolant ?: 0) > 90) redZoneColor else textColor
-                )
-            }
-            
-            // 4. Bensin (Kanan bawah)
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = 16.dp)
-            ) {
-                Text("FUEL", fontSize = 10.sp, color = Color.Gray)
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Box(modifier = Modifier.width(8.dp).height(24.dp).background(Color(0xFF4CAF50)))
-                    Box(modifier = Modifier.width(8.dp).height(18.dp).background(Color(0xFF4CAF50)))
-                    Box(modifier = Modifier.width(8.dp).height(12.dp).background(Color.LightGray))
+                // SUHU
+                Column(horizontalAlignment = Alignment.Start) {
+                    Text("SUHU", fontSize = 10.sp, color = Color.Gray)
+                    Text(
+                        text = if (coolant != null) "$coolant°C" else "--°C",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if ((coolant ?: 0) > 90) redZoneColor else textColor
+                    )
+                }
+
+                // THROTTLE (Bukaan Gas)
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("THROTTLE", fontSize = 10.sp, color = Color.Gray)
+                    Text(
+                        text = if (throttle != null) "$throttle%" else "--%",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textColor
+                    )
                 }
             }
         }
@@ -156,7 +155,6 @@ fun RpmGauge(
     val maxRpm = 12000
     val currentRpm = rpm.coerceIn(0, maxRpm)
     
-    // Animasi jarum agar bergerak mulus
     val targetRatio = currentRpm.toFloat() / maxRpm
     val needleRatio by animateFloatAsState(
         targetValue = targetRatio,
@@ -168,15 +166,12 @@ fun RpmGauge(
         Canvas(modifier = Modifier.fillMaxSize()) {
             val width = size.width
             val height = size.height
-            
-            // Titik tengah lingkaran diletakkan di bawah (supaya melengkung ke atas)
             val center = Offset(width / 2, height)
             val radius = width / 2.3f 
 
             val startAngle = 180f
             val sweepAngle = 180f
 
-            // Gambar garis background (abu-abu)
             drawArc(
                 color = Color.LightGray,
                 startAngle = startAngle,
@@ -187,7 +182,6 @@ fun RpmGauge(
                 style = Stroke(width = 24f, cap = StrokeCap.Round)
             )
 
-            // Gambar zona merah (redline 80% - 100%)
             drawArc(
                 color = redZoneColor,
                 startAngle = startAngle + (sweepAngle * 0.8f),
@@ -198,13 +192,11 @@ fun RpmGauge(
                 style = Stroke(width = 24f, cap = StrokeCap.Round)
             )
 
-            // Gambar Jarum (mengikuti sudut)
             val angleDeg = startAngle + (sweepAngle * needleRatio)
             val angleRad = Math.toRadians(angleDeg.toDouble())
             
-            // Jarum ditarik dari luar ke dalam (tidak menutupi angka speed)
-            val outerRadius = radius - 12f // Ujung jarum
-            val innerRadius = radius * 0.4f // Pangkal jarum (tidak sampai tengah)
+            val outerRadius = radius - 12f 
+            val innerRadius = radius * 0.4f 
             
             val startPoint = Offset(
                 x = center.x + (innerRadius * cos(angleRad)).toFloat(),
