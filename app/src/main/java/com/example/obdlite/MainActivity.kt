@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
@@ -41,34 +42,31 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge() // Agar tampilan memenuhi layar (full screen)
+        enableEdgeToEdge() 
 
         bt = BluetoothManager(this)
         obd = ObdService(bt)
 
-        // ... import sebelumnya
-import androidx.compose.foundation.layout.systemBarsPadding
-
-// Di dalam setContent:
-setContent {
-    MaterialTheme {
-        Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .systemBarsPadding(), // TAMBAHKAN INI agar tidak tertutup status bar
-            color = Color(0xFF121212)
-        ) {
-            DashboardScreen(
-                connected = connected,
-                rpm = rpm,
-                speed = speed,
-                coolant = coolant,
-                onConnect = { requestPermissions() },
-                onDisconnect = { disconnect() }
-            )
+        setContent {
+            MaterialTheme {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .systemBarsPadding(), // Padding agar tidak tertutup status bar
+                    color = Color(0xFF121212) 
+                ) {
+                    DashboardScreen(
+                        connected = connected,
+                        rpm = rpm,
+                        speed = speed,
+                        coolant = coolant,
+                        onConnect = { requestPermissions() },
+                        onDisconnect = { disconnect() }
+                    )
+                }
+            }
         }
-    }
-}
+    } // <--- PASTIKAN KURUNG INI MENUTUP FUNGSI onCreate
 
     private fun requestPermissions() {
         val perms = if (Build.VERSION.SDK_INT >= 31) {
@@ -87,11 +85,10 @@ setContent {
 
     private fun doConnect() {
         scope.launch {
-            // Ubah UI state ke "Connecting" jika perlu
             val success = bt.connectToFirstPaired()
             
             if (success) {
-                obd.init() // Inisialisasi ELM327 (ATZ, ATE0, dll)
+                obd.init() 
                 withContext(Dispatchers.Main) {
                     connected = true
                 }
@@ -99,8 +96,6 @@ setContent {
             } else {
                 withContext(Dispatchers.Main) {
                     connected = false
-                    // Opsional: Tampilkan Toast jika gagal konek
-                    // Toast.makeText(this@MainActivity, "Gagal terhubung ke ELM327", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -110,19 +105,16 @@ setContent {
         pollJob?.cancel()
         pollJob = scope.launch {
             while (isActive) {
-                // Baca data dari OBD (berjalan di background thread)
                 val r = obd.getRpm()
                 val s = obd.getSpeed()
                 val c = obd.getCoolantTemp()
 
-                // Update UI di main thread
                 withContext(Dispatchers.Main) {
                     rpm = r
                     speed = s
                     coolant = c
                 }
                 
-                // Jeda 500ms sebelum membaca data lagi (mencegah adapter crash)
                 delay(500) 
             }
         }
@@ -143,8 +135,7 @@ setContent {
 
     override fun onDestroy() {
         super.onDestroy()
-        // Pastikan koneksi terputus dan coroutine dibatalkan saat aplikasi ditutup
         bt.disconnect()
         scope.cancel()
     }
-}
+} // <--- PASTIKAN KURUNG INI MENUTUP CLASS MainActivity
