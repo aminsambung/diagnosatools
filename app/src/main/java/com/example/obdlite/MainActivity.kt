@@ -46,24 +46,29 @@ class MainActivity : ComponentActivity() {
         bt = BluetoothManager(this)
         obd = ObdService(bt)
 
-        setContent {
-            MaterialTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = Color(0xFF121212) // Background luar (gelap)
-                ) {
-                    DashboardScreen(
-                        connected = connected,
-                        rpm = rpm,
-                        speed = speed,
-                        coolant = coolant,
-                        onConnect = { requestPermissions() },
-                        onDisconnect = { disconnect() }
-                    )
-                }
-            }
+        // ... import sebelumnya
+import androidx.compose.foundation.layout.systemBarsPadding
+
+// Di dalam setContent:
+setContent {
+    MaterialTheme {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding(), // TAMBAHKAN INI agar tidak tertutup status bar
+            color = Color(0xFF121212)
+        ) {
+            DashboardScreen(
+                connected = connected,
+                rpm = rpm,
+                speed = speed,
+                coolant = coolant,
+                onConnect = { requestPermissions() },
+                onDisconnect = { disconnect() }
+            )
         }
     }
+}
 
     private fun requestPermissions() {
         val perms = if (Build.VERSION.SDK_INT >= 31) {
