@@ -20,7 +20,15 @@ class ObdService(private val bt: BluetoothManager) {
         val a = bytes[0]; val b = bytes[1]
         return ((a * 256) + b) / 4
     }
-
+    
+    /** PID 11: Throttle Position (0-100%) */
+    fun getThrottle(): Int? {
+        val raw = bt.send("0111")
+        val bytes = parseHexBytes(raw, prefix = "4111") ?: return null
+        val a = bytes.firstOrNull() ?: return null
+        // Rumus: (A * 100) / 255
+        return (a * 100) / 255
+    }
     /** PID 0D: Vehicle Speed (km/h) */
     fun getSpeed(): Int? {
         val raw = bt.send("010D")
@@ -44,4 +52,4 @@ class ObdService(private val bt: BluetoothManager) {
             .mapNotNull { it.toIntOrNull(16) }
             .toIntArray()
     }
-}
+} 
