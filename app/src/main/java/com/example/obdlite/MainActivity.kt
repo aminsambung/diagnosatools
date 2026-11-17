@@ -22,16 +22,15 @@ class MainActivity : ComponentActivity() {
     private lateinit var bt: BluetoothManager
     private lateinit var obd: ObdService
 
-    // State untuk UI Compose
     private var connected by mutableStateOf(false)
     private var rpm by mutableStateOf<Int?>(null)
     private var speed by mutableStateOf<Int?>(null)
     private var coolant by mutableStateOf<Int?>(null)
+    private var throttle by mutableStateOf<Int?>(null) // State baru
 
     private var pollJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    // Launcher untuk meminta izin Bluetooth
     private val permLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
@@ -52,7 +51,7 @@ class MainActivity : ComponentActivity() {
                 Surface(
                     modifier = Modifier
                         .fillMaxSize()
-                        .systemBarsPadding(), // Padding agar tidak tertutup status bar
+                        .systemBarsPadding(),
                     color = Color(0xFF121212) 
                 ) {
                     DashboardScreen(
@@ -60,13 +59,14 @@ class MainActivity : ComponentActivity() {
                         rpm = rpm,
                         speed = speed,
                         coolant = coolant,
+                        throttle = throttle, // Kirim ke UI
                         onConnect = { requestPermissions() },
                         onDisconnect = { disconnect() }
                     )
                 }
             }
         }
-    } // <--- PASTIKAN KURUNG INI MENUTUP FUNGSI onCreate
+    }
 
     private fun requestPermissions() {
         val perms = if (Build.VERSION.SDK_INT >= 31) {
@@ -108,11 +108,13 @@ class MainActivity : ComponentActivity() {
                 val r = obd.getRpm()
                 val s = obd.getSpeed()
                 val c = obd.getCoolantTemp()
+                val t = obd.getThrottle() // Baca throttle
 
                 withContext(Dispatchers.Main) {
                     rpm = r
                     speed = s
                     coolant = c
+                    throttle = t
                 }
                 
                 delay(500) 
@@ -129,6 +131,7 @@ class MainActivity : ComponentActivity() {
                 rpm = null
                 speed = null
                 coolant = null
+                throttle = null
             }
         }
     }
@@ -138,4 +141,4 @@ class MainActivity : ComponentActivity() {
         bt.disconnect()
         scope.cancel()
     }
-} // <--- PASTIKAN KURUNG INI MENUTUP CLASS MainActivity
+}
