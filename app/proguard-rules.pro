@@ -1,2 +1,3 @@
-# Default ProGuard rules (kosong dulu, dipakai kalau build release nanti)
+-keep class androidx.compose.** { *; }
+-dontwarn androidx.compose.**
 -keep class com.example.obdlite.** { *; }
