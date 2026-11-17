@@ -1,19 +1,24 @@
 package com.example.obdlite
 
 import android.Manifest
+import android.bluetooth.BluetoothDevice
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.obdlite.ui.DashboardScreen
 import com.example.obdlite.ui.DtcScreen
 import kotlinx.coroutines.*
@@ -23,23 +28,29 @@ class MainActivity : ComponentActivity() {
     private lateinit var bt: BluetoothManager
     private lateinit var obd: ObdService
 
+    // State Data
     private var connected by mutableStateOf(false)
     private var rpm by mutableStateOf<Int?>(null)
     private var speed by mutableStateOf<Int?>(null)
     private var coolant by mutableStateOf<Int?>(null)
     private var throttle by mutableStateOf<Int?>(null)
     
-    // Ubah tipe data menjadi List<DtcData>
+    // State DTC
     private var showDtcScreen by mutableStateOf(false)
     private var dtcList by mutableStateOf<List<DtcData>>(emptyList())
     private var isScanning by mutableStateOf(false)
+
+    // State Bluetooth & Dialog
+    private var showDeviceDialog by mutableStateOf(false)
+    private var pairedDevices by mutableStateOf<List<BluetoothDevice>>(emptyList())
+    private var showResetEcuDialog by mutableStateOf(false)
 
     private var pollJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val permLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { grants -> if (grants.values.all { it }) doConnect() }
+    ) { grants -> if (grants.values.all { it }) loadPairedDevices() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -69,9 +80,72 @@ class MainActivity : ComponentActivity() {
                             onConnect = { requestPermissions() },
                             onDisconnect = { disconnect() },
                             onOpenDtc = { 
+                                // Cukup buka layar, scan dilakukan dari dalam layar DTC
                                 showDtcScreen = true 
-                                if (connected) scanDtcs()
-                            }
+                            },
+                            onResetEcu = { showResetEcuDialog = true } 
+                        )
+                    }
+                    
+                    // Dialog Pilih Perangkat Bluetooth
+                    if (showDeviceDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showDeviceDialog = false },
+                            title = { Text("Pilih Adaptor OBD2", color = Color.White) },
+                            text = {
+                                if (pairedDevices.isEmpty()) {
+                                    Text("Tidak ada perangkat yang di-pair. Silakan pair ELM327 di Pengaturan Bluetooth HP.", color = Color.Gray)
+                                } else {
+                                    LazyColumn {
+                                        items(pairedDevices) { device ->
+                                            val deviceName = device.name ?: "Unknown Device"
+                                            Text(
+                                                text = deviceName,
+                                                color = Color.White,
+                                                fontSize = 16.sp,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable {
+                                                        showDeviceDialog = false
+                                                        connectToSpecificDevice(device)
+                                                    }
+                                                    .padding(vertical = 12.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            },
+                            confirmButton = {
+                                TextButton(onClick = { showDeviceDialog = false }) {
+                                    Text("Batal", color = Color.LightGray)
+                                }
+                            },
+                            containerColor = Color(0xFF2C2C2C)
+                        )
+                    }
+
+                    // Dialog Konfirmasi Reset ECU
+                    if (showResetEcuDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showResetEcuDialog = false },
+                            title = { Text("Peringatan Reset ECU", color = Color.White) },
+                            text = { 
+                                Text("Tindakan ini akan menghapus memori belajar ECU (Idle & Bahan Bakar) dan mematikan lampu Check Engine. Mesin mungkin akan terasa sedikit aneh (RPM naik-turun) selama beberapa menit karena ECU belajar dari awal.\n\nLanjutkan?", color = Color.LightGray) 
+                            },
+                            confirmButton = {
+                                TextButton(onClick = { 
+                                    showResetEcuDialog = false 
+                                    performEcuReset()
+                                }) {
+                                    Text("Ya, Reset", color = Color(0xFFFF5252), fontWeight = FontWeight.Bold)
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showResetEcuDialog = false }) {
+                                    Text("Batal", color = Color.White)
+                                }
+                            },
+                            containerColor = Color(0xFF2C2C2C)
                         )
                     }
                 }
@@ -88,9 +162,14 @@ class MainActivity : ComponentActivity() {
         permLauncher.launch(perms)
     }
 
-    private fun doConnect() {
+    private fun loadPairedDevices() {
+        pairedDevices = bt.getPairedDevices()
+        showDeviceDialog = true
+    }
+
+    private fun connectToSpecificDevice(device: BluetoothDevice) {
         scope.launch {
-            if (bt.connectToFirstPaired()) {
+            if (bt.connectToDevice(device)) {
                 obd.init() 
                 withContext(Dispatchers.Main) { connected = true }
                 startPolling()
@@ -149,6 +228,16 @@ class MainActivity : ComponentActivity() {
                     dtcList = emptyList()
                 }
             }
+        }
+    }
+
+    private fun performEcuReset() {
+        if (!connected) return
+        scope.launch {
+            pollJob?.cancel() // Hentikan polling sementara
+            obd.clearDtcs()   // Hapus error
+            bt.send("ATZ")    // Restart adaptor ELM327
+            startPolling()    // Lanjutkan polling
         }
     }
 
