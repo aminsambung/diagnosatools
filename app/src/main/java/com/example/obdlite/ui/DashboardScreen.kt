@@ -29,9 +29,10 @@ fun DashboardScreen(
     rpm: Int?,
     speed: Int?,
     coolant: Int?,
-    throttle: Int?, // Parameter baru
+    throttle: Int?,
     onConnect: () -> Unit,
-    onDisconnect: () -> Unit
+    onDisconnect: () -> Unit,
+    onOpenDtc: () -> Unit
 ) {
     val bgColor = Color(0xFFF0F0F0)
     val textColor = Color(0xFF000000)
@@ -92,7 +93,6 @@ fun DashboardScreen(
                 )
             }
 
-            // Indikator Bawah (Suhu & Throttle)
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -100,7 +100,6 @@ fun DashboardScreen(
                     .padding(horizontal = 24.dp, vertical = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // SUHU
                 Column(horizontalAlignment = Alignment.Start) {
                     Text("SUHU", fontSize = 10.sp, color = Color.Gray)
                     Text(
@@ -111,7 +110,6 @@ fun DashboardScreen(
                     )
                 }
 
-                // THROTTLE (Bukaan Gas)
                 Column(horizontalAlignment = Alignment.End) {
                     Text("THROTTLE", fontSize = 10.sp, color = Color.Gray)
                     Text(
@@ -126,6 +124,27 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.weight(1f))
 
+        // Tombol DTC (Hanya muncul jika terhubung)
+        if (connected) {
+            Button(
+                onClick = onOpenDtc,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .padding(bottom = 8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "Cek Kerusakan Mesin (DTC)",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+        }
+
+        // Tombol Connect / Disconnect
         Button(
             onClick = if (connected) onDisconnect else onConnect,
             modifier = Modifier
