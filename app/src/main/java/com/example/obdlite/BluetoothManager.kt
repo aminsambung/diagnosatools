@@ -3,6 +3,7 @@ package com.example.obdlite
 import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.content.pm.PackageManager
@@ -18,26 +19,34 @@ class BluetoothManager(private val context: Context) {
     private var input: InputStream? = null
     private var output: OutputStream? = null
 
+    /** Mengambil daftar perangkat Bluetooth yang sudah di-pair di HP */
     @SuppressLint("MissingPermission")
-    fun connectToFirstPaired(): Boolean {
+    fun getPairedDevices(): List<BluetoothDevice> {
+        if (!hasPermission()) return emptyList()
+        val adapter = BluetoothAdapter.getDefaultAdapter() ?: return emptyList()
+        if (!adapter.isEnabled) return emptyList()
+        
+        return adapter.bondedDevices?.toList() ?: emptyList()
+    }
+
+    /** Menghubungkan ke perangkat spesifik yang dipilih oleh pengguna */
+    @SuppressLint("MissingPermission")
+    fun connectToDevice(device: BluetoothDevice): Boolean {
         if (!hasPermission()) return false
-
-        val adapter = BluetoothAdapter.getDefaultAdapter() ?: return false
-        if (!adapter.isEnabled) return false
-
-        // Ambil device paired pertama (biasanya ELM327 sudah dipasangkan di setting)
-        val device = adapter.bondedDevices?.firstOrNull() ?: return false
-
-        return try {
+        
+        try {
+            // Putuskan koneksi lama jika ada (biar bersih)
+            disconnect()
+            
             socket = device.createRfcommSocketToServiceRecord(sppUuid)
-            adapter.cancelDiscovery()
+            BluetoothAdapter.getDefaultAdapter()?.cancelDiscovery()
             socket?.connect()
             input = socket?.inputStream
             output = socket?.outputStream
-            true
+            return true
         } catch (e: Exception) {
             disconnect()
-            false
+            return false
         }
     }
 
@@ -45,7 +54,7 @@ class BluetoothManager(private val context: Context) {
         return try {
             output?.write("$cmd\r".toByteArray())
             output?.flush()
-            Thread.sleep(200)          // beri waktu ELM327 merespon
+            Thread.sleep(200)
             readResponse()
         } catch (e: Exception) {
             ""
@@ -60,7 +69,7 @@ class BluetoothManager(private val context: Context) {
             if (input?.available() ?: 0 > 0) {
                 val n = input!!.read(buffer)
                 sb.append(String(buffer, 0, n))
-                if (sb.contains(">")) break   // prompt ELM327
+                if (sb.contains(">")) break
             }
         }
         return sb.toString().replace(">", "").trim()
@@ -75,7 +84,6 @@ class BluetoothManager(private val context: Context) {
         val perm = if (android.os.Build.VERSION.SDK_INT >= 31)
             Manifest.permission.BLUETOOTH_CONNECT
         else Manifest.permission.BLUETOOTH
-        return ContextCompat.checkSelfPermission(context, perm) ==
-                PackageManager.PERMISSION_GRANTED
+        return ContextCompat.checkSelfPermission(context, perm) == PackageManager.PERMISSION_GRANTED
     }
 }
