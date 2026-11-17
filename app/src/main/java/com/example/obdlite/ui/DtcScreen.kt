@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -12,10 +13,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.obdlite.DtcData
 
 @Composable
 fun DtcScreen(
-    dtcList: List<String>,
+    dtcList: List<DtcData>,
     isScanning: Boolean,
     onScan: () -> Unit,
     onClear: () -> Unit,
@@ -47,20 +49,28 @@ fun DtcScreen(
                 )
             } else {
                 LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(dtcList) { code ->
+                    items(dtcList) { dtc ->
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2C))
+                                .padding(vertical = 6.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2C)),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text(
-                                text = code,
-                                color = Color(0xFFFF5252),
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(16.dp)
-                            )
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = dtc.code,
+                                    color = Color(0xFFFF5252),
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = dtc.description,
+                                    color = Color.LightGray,
+                                    fontSize = 14.sp
+                                )
+                            }
                         }
                     }
                 }
