@@ -32,7 +32,8 @@ fun DashboardScreen(
     throttle: Int?,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
-    onOpenDtc: () -> Unit
+    onOpenDtc: () -> Unit,
+    onResetEcu: () -> Unit
 ) {
     val bgColor = Color(0xFFF0F0F0)
     val textColor = Color(0xFF000000)
@@ -124,23 +125,29 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Tombol DTC (Hanya muncul jika terhubung)
+        // TOMBOL-Tombol Aksi (Hanya muncul jika terhubung)
         if (connected) {
-            Button(
-                onClick = onOpenDtc,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .padding(bottom = 8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-                shape = RoundedCornerShape(12.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "Cek Kerusakan Mesin (DTC)",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
+                Button(
+                    onClick = onOpenDtc,
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Cek Error (DTC)", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+
+                Button(
+                    onClick = onResetEcu,
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)), 
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Reset ECU", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
             }
         }
 
