@@ -23,16 +23,15 @@ class MainActivity : ComponentActivity() {
     private lateinit var bt: BluetoothManager
     private lateinit var obd: ObdService
 
-    // State Data
     private var connected by mutableStateOf(false)
     private var rpm by mutableStateOf<Int?>(null)
     private var speed by mutableStateOf<Int?>(null)
     private var coolant by mutableStateOf<Int?>(null)
     private var throttle by mutableStateOf<Int?>(null)
     
-    // State DTC
+    // Ubah tipe data menjadi List<DtcData>
     private var showDtcScreen by mutableStateOf(false)
-    private var dtcList by mutableStateOf<List<String>>(emptyList())
+    private var dtcList by mutableStateOf<List<DtcData>>(emptyList())
     private var isScanning by mutableStateOf(false)
 
     private var pollJob: Job? = null
@@ -71,7 +70,6 @@ class MainActivity : ComponentActivity() {
                             onDisconnect = { disconnect() },
                             onOpenDtc = { 
                                 showDtcScreen = true 
-                                // Opsional: auto scan saat masuk
                                 if (connected) scanDtcs()
                             }
                         )
@@ -81,7 +79,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // ... (Fungsi requestPermissions, doConnect, startPolling, disconnect SAMA SEPERTI SEBELUMNYA) ...
     private fun requestPermissions() {
         val perms = if (Build.VERSION.SDK_INT >= 31) {
             arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN)
@@ -131,7 +128,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // --- LOGIKA DTC BARU ---
     private fun scanDtcs() {
         if (!connected) return
         scope.launch {
@@ -150,7 +146,7 @@ class MainActivity : ComponentActivity() {
             val success = obd.clearDtcs()
             if (success) {
                 withContext(Dispatchers.Main) {
-                    dtcList = emptyList() // Bersihkan layar jika sukses
+                    dtcList = emptyList()
                 }
             }
         }
