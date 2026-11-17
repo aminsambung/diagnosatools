@@ -1,5 +1,8 @@
 package com.example.obdlite
 
+// Buat data class untuk menampung kode dan deskripsinya
+data class DtcData(val code: String, val description: String)
+
 class ObdService(private val bt: BluetoothManager) {
 
     fun init(): Boolean {
@@ -37,20 +40,23 @@ class ObdService(private val bt: BluetoothManager) {
         return (a * 100) / 255
     }
 
-    /** Membaca DTC (Mode 03) */
-    fun readDtcs(): List<String> {
+    /** Membaca DTC (Mode 03) dan menerjemahkannya */
+    fun readDtcs(): List<DtcData> {
         val raw = bt.send("03")
         val clean = raw.replace(" ", "").replace("\r", "").replace("\n", "").uppercase()
         val idx = clean.indexOf("43")
         if (idx < 0 || clean.length < idx + 4) return emptyList()
 
         val data = clean.substring(idx + 2)
-        val dtcs = mutableListOf<String>()
+        val dtcs = mutableListOf<DtcData>()
         
         for (i in 0 until data.length - 3 step 4) {
             val code = data.substring(i, i + 4)
             if (code != "0000") {
-                dtcs.add(parseDtcCode(code))
+                val formattedCode = parseDtcCode(code)
+                // Ambil deskripsi dari database offline
+                val description = DtcDatabase.getDescription(formattedCode)
+                dtcs.add(DtcData(formattedCode, description))
             }
         }
         return dtcs
