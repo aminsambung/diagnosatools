@@ -1,5 +1,7 @@
 package com.example.obdlite.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -7,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -15,7 +18,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.cos
@@ -30,20 +32,21 @@ fun DashboardScreen(
     onConnect: () -> Unit,
     onDisconnect: () -> Unit
 ) {
-    // Warna dasar mirip LCD motor
-    val bgColor = Color(0xFFF0F0F0) // Light gray/white LCD
+    val bgColor = Color(0xFFF0F0F0)
     val textColor = Color(0xFF000000)
-    val accentColor = Color(0xFF000000) // Jarum dan speed
+    val accentColor = Color(0xFF000000)
     val redZoneColor = Color(0xFFE53935)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF121212)) // Background HP hitam
+            .background(Color(0xFF121212))
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Header Status
+        // Beri jarak atas agar tidak tertutup status bar (karena enableEdgeToEdge)
+        Spacer(modifier = Modifier.height(24.dp)) 
+
         Text(
             text = if (connected) "● TERHUBUNG" else "○ TERPUTUS",
             color = if (connected) Color(0xFF4CAF50) else Color(0xFFF44336),
@@ -52,35 +55,35 @@ fun DashboardScreen(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // Panel LCD Utama
+        // Panel LCD
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1.5f) // Rasio mirip layar LCD motor
-                .background(bgColor, RoundedCornerShape(12.dp))
-                .border(8.dp, Color(0xFF222222), RoundedCornerShape(12.dp))
+                .aspectRatio(1.3f) // Sedikit lebih kotak
+                .background(bgColor, RoundedCornerShape(16.dp))
+                .border(10.dp, Color(0xFF222222), RoundedCornerShape(16.dp))
         ) {
-            // 1. RPM Gauge (Melengkung di atas)
+            // 1. RPM Gauge (Garis melengkung di atas)
             RpmGauge(
                 rpm = rpm ?: 0,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.6f)
-                    .padding(top = 16.dp),
+                    .fillMaxHeight(0.65f) // Ambil 65% area atas
+                    .padding(top = 10.dp),
                 redZoneColor = redZoneColor,
                 accentColor = accentColor
             )
 
-            // 2. Kecepatan (Angka Besar di Tengah)
+            // 2. Kecepatan (Angka Besar)
             Column(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .offset(y = 20.dp),
+                    .offset(y = 30.dp), // Geser ke bawah agar tidak tertutup jarum
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = if (speed != null) "$speed" else "0",
-                    fontSize = 72.sp,
+                    fontSize = 80.sp,
                     fontWeight = FontWeight.Black,
                     color = textColor
                 )
@@ -92,7 +95,7 @@ fun DashboardScreen(
                 )
             }
 
-            // 3. Suhu Air (Indikator kecil di kiri bawah)
+            // 3. Suhu Air (Kiri bawah)
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
@@ -101,13 +104,13 @@ fun DashboardScreen(
                 Text("SUHU", fontSize = 10.sp, color = Color.Gray)
                 Text(
                     text = if (coolant != null) "$coolant°C" else "--°C",
-                    fontSize = 20.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = if ((coolant ?: 0) > 90) redZoneColor else textColor
                 )
             }
             
-            // Indikator Bensin (Dummy visual aja)
+            // 4. Bensin (Kanan bawah)
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -115,16 +118,15 @@ fun DashboardScreen(
             ) {
                 Text("FUEL", fontSize = 10.sp, color = Color.Gray)
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Box(modifier = Modifier.width(6.dp).height(20.dp).background(Color.Green))
-                    Box(modifier = Modifier.width(6.dp).height(15.dp).background(Color.Green))
-                    Box(modifier = Modifier.width(6.dp).height(10.dp).background(Color.Gray))
+                    Box(modifier = Modifier.width(8.dp).height(24.dp).background(Color(0xFF4CAF50)))
+                    Box(modifier = Modifier.width(8.dp).height(18.dp).background(Color(0xFF4CAF50)))
+                    Box(modifier = Modifier.width(8.dp).height(12.dp).background(Color.LightGray))
                 }
             }
         }
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Tombol Koneksi
         Button(
             onClick = if (connected) onDisconnect else onConnect,
             modifier = Modifier
@@ -153,21 +155,28 @@ fun RpmGauge(
 ) {
     val maxRpm = 12000
     val currentRpm = rpm.coerceIn(0, maxRpm)
-    // Sudut dari -180 derajat (kiri) ke 0 derajat (kanan)
-    val startAngle = 180f
-    val sweepAngle = 180f
     
-    // Posisi jarum (dari 0 sampai 1)
-    val needleRatio = currentRpm.toFloat() / maxRpm
+    // Animasi jarum agar bergerak mulus
+    val targetRatio = currentRpm.toFloat() / maxRpm
+    val needleRatio by animateFloatAsState(
+        targetValue = targetRatio,
+        animationSpec = tween(durationMillis = 300),
+        label = "rpmNeedle"
+    )
 
-    Box(modifier = modifier, contentAlignment = Alignment.BottomCenter) {
+    Box(modifier = modifier) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val width = size.width
             val height = size.height
-            val radius = width / 2.2f
-            val center = Offset(width / 2, height)
             
-            // Gambar track background gauge abu-abu
+            // Titik tengah lingkaran diletakkan di bawah (supaya melengkung ke atas)
+            val center = Offset(width / 2, height)
+            val radius = width / 2.3f 
+
+            val startAngle = 180f
+            val sweepAngle = 180f
+
+            // Gambar garis background (abu-abu)
             drawArc(
                 color = Color.LightGray,
                 startAngle = startAngle,
@@ -175,10 +184,10 @@ fun RpmGauge(
                 useCenter = false,
                 topLeft = Offset(center.x - radius, center.y - radius),
                 size = Size(radius * 2, radius * 2),
-                style = Stroke(width = 20f, cap = StrokeCap.Round)
+                style = Stroke(width = 24f, cap = StrokeCap.Round)
             )
 
-            // Gambar red zone (zona merah di RPM tinggi)
+            // Gambar zona merah (redline 80% - 100%)
             drawArc(
                 color = redZoneColor,
                 startAngle = startAngle + (sweepAngle * 0.8f),
@@ -186,37 +195,33 @@ fun RpmGauge(
                 useCenter = false,
                 topLeft = Offset(center.x - radius, center.y - radius),
                 size = Size(radius * 2, radius * 2),
-                style = Stroke(width = 20f, cap = StrokeCap.Round)
+                style = Stroke(width = 24f, cap = StrokeCap.Round)
             )
 
-            // Gambar jarum
-            val angleRad = Math.toRadians((startAngle + (sweepAngle * needleRatio)).toDouble())
-            val needleLength = radius - 20f
-            val needleEnd = Offset(
-                x = center.x + (needleLength * cos(angleRad)).toFloat(),
-                y = center.y + (needleLength * sin(angleRad)).toFloat()
-            )
+            // Gambar Jarum (mengikuti sudut)
+            val angleDeg = startAngle + (sweepAngle * needleRatio)
+            val angleRad = Math.toRadians(angleDeg.toDouble())
             
+            // Jarum ditarik dari luar ke dalam (tidak menutupi angka speed)
+            val outerRadius = radius - 12f // Ujung jarum
+            val innerRadius = radius * 0.4f // Pangkal jarum (tidak sampai tengah)
+            
+            val startPoint = Offset(
+                x = center.x + (innerRadius * cos(angleRad)).toFloat(),
+                y = center.y + (innerRadius * sin(angleRad)).toFloat()
+            )
+            val endPoint = Offset(
+                x = center.x + (outerRadius * cos(angleRad)).toFloat(),
+                y = center.y + (outerRadius * sin(angleRad)).toFloat()
+            )
+
             drawLine(
                 color = accentColor,
-                start = center,
-                end = needleEnd,
+                start = startPoint,
+                end = endPoint,
                 strokeWidth = 8f,
                 cap = StrokeCap.Round
             )
-            
-            // Titik tengah jarum
-            drawCircle(color = accentColor, radius = 12f, center = center)
-            drawCircle(color = Color.White, radius = 6f, center = center)
         }
-        
-        // Angka RPM
-        Text(
-            text = "${currentRpm / 1000}",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.Black,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
     }
 }
